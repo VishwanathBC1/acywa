@@ -104,7 +104,22 @@ class Assistant:
         })
         self.chat_history.append(HumanMessage(content=question))
         self.chat_history.append(AIMessage(content=response["answer"]))
-        return response["answer"]
+
+        # Suggest follow-up prompts for all responses
+        follow_up_prompts = self.get_default_follow_up_prompts()
+
+        return {
+            "answer": response["answer"],
+            "follow_up": follow_up_prompts
+        }
+
+    def get_default_follow_up_prompts(self):
+        # Default follow-up prompts for all conversations
+        return [
+            "Would you like to see data for a specific year?",
+            "Do you want to filter data by region?",
+            "Need help finding other themes or indicators?"
+        ]
 
     def reset_chat_history(self):
         self.chat_history = []
@@ -136,13 +151,19 @@ def chat():
 
             # Append the messages to chat history
             chat_history.append(HumanMessage(content=user_message))
-            chat_history.append(AIMessage(content=bot_reply))
+            chat_history.append(AIMessage(content=bot_reply['answer']))
 
             # Serialize chat history before returning
             serialized_history = [{"type": "human", "content": msg.content} if isinstance(msg, HumanMessage)
                                   else {"type": "ai", "content": msg.content} for msg in chat_history]
 
-            return jsonify({"reply": bot_reply, "chat_history": serialized_history})
+            return jsonify({
+                "reply": {
+                    "answer": bot_reply["answer"],
+                    "follow_up": bot_reply["follow_up"]
+                },
+                "chat_history": serialized_history
+            })
         except Exception as e:
             # Log the full traceback for debugging
             print("Error: ", str(e))
@@ -151,47 +172,6 @@ def chat():
 
     return jsonify({"reply": "No message provided."}), 400
 
-# Interactive mode for CLI
-def run_interactive_mode():
-    assistant = MapAssistant()
-
-    print("Hello! Welcome to the Atlas Map Navigation Assistant! Are you new to our interactive map platform? (Yes/No)")
-
-    user_response = input("You: ").lower()
-    if user_response in ['yes', 'y']:
-        assistant.is_new_user = True
-        print("Great! Let's start by familiarising you with the map platform.")
-        print("You can start by reading the help screens. Please follow these steps:")
-        print("1. Click on Atlas maps")
-        print("2. Navigate to the right-hand side pane")
-        print("3. Click the 'i' icon in the top right-hand corner")
-        print("This will open the help screens. There are three screens covering different aspects of the platform: the National scale, Atlas menu items, and map interactions.")
-        print("Are you ready to continue? (Yes/No)")
-        continue_response = input("You: ").lower()
-        if continue_response in ['yes', 'y']:
-            print("Great! What specific question can I assist you with first?")
-        else:
-            print("Alright. Feel free to ask any questions when you're ready to explore further.")
-    else:
-        print("Welcome back! I'm here to assist you with any questions about our map platform. What can I help you with today?")
-
-    while True:
-        user_input = input("You: ")
-        if user_input.lower() == 'exit':
-            print("Ending conversation. Goodbye!")
-            break
-
-        try:
-            response = assistant.process_chat(user_input)
-            print("Assistant:", response)
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            print("Let's try that again. Could you rephrase your question?")
-
 # Main entry point for CLI or Flask API
 if __name__ == "__main__":
-    # Check if running in CLI or Flask mode based on environment variable or argument
-    if os.getenv("MODE") == "interactive":
-        run_interactive_mode()
-    else:
-        app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
