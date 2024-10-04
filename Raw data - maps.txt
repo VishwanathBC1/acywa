@@ -1,4 +1,3 @@
-
 Themes	:	"The Atlas project defines children's health, development, and wellbeing based on the Nest framework, an evidence-based model developed by the Australian Research Alliance for Children and Youth (ARACY). There are six themes representing six broad well being domains for filtering the data. These are - Healthy, Identity & Culture, Learning, Material Basics, Participation and Valued, loved and safe. You can choose any of these themes and drill down further to select sub categories for filtering data"
 
 Healthy	:	Disability and chronic health conditions, Children and young people with a profound or severe core activity limitation, Children and young people with type 1 diabetes, Chronic physical illness related hospital admissions (WA only), Diabetes related hospital admissions	(WA only):	 "Click on Atlas maps, then navigate to right-hand side pane and then type a theme in the search box to select the suitable subcategory for you"
