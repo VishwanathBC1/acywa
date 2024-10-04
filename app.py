@@ -114,40 +114,63 @@ class MapAssistant(Assistant):
         super().__init__('Raw data - maps.txt', 'map navigation')
 
 # Flask API route
-@app.route('/')
-def index():
-    return "Welcome to the Chatbot API! Access the /chat endpoint to communicate with the chatbot."
-
 # Chat route to handle incoming chat requests
 @app.route("/chat", methods=["POST"])
 def chat():
     data = request.get_json()
-    user_message = data.get("message", "")
+    user_message = data.get("message", "").lower()  # Normalize message to lowercase for easy comparison
     chat_history = data.get("chat_history", [])
+    
+    # Initialize chatbot response and context state
+    bot_reply = ""
     context = "map navigation"
 
-    if user_message:
-        try:
-            # Create an instance of MapAssistant and load documents and set up vector store
-            assistant = MapAssistant()
+    try:
+        # Initialize the assistant
+        assistant = MapAssistant()
 
-            # Process the user message through LangChain
+        # Track conversation state based on history
+        if not chat_history:
+            # Start the conversation with an introductory prompt
+            bot_reply = "Hello! Welcome to the Atlas Map Navigation Assistant! Are you new to our interactive map platform? (Yes/No)"
+            chat_history.append("intro")
+
+        elif "intro" in chat_history and ("yes" in user_message or "no" in user_message):
+            if "yes" in user_message:
+                bot_reply = (
+                    "Great! Let's start by familiarising you with the map platform. "
+                    "You can start by reading the help screens. Follow these steps: "
+                    "1. Click on Atlas maps. "
+                    "2. Navigate to the right-hand side pane. "
+                    "3. Click the 'i' icon in the top right-hand corner. "
+                    "Are you ready to continue? (Yes/No)"
+                )
+                chat_history.append("new_user")
+            elif "no" in user_message:
+                bot_reply = "Welcome back! I'm here to assist you with any questions about our map platform. What can I help you with today?"
+                chat_history.append("returning_user")
+
+        elif "new_user" in chat_history and ("yes" in user_message or "no" in user_message):
+            if "yes" in user_message:
+                bot_reply = "Great! What specific question can I assist you with first?"
+            else:
+                bot_reply = "Alright. Feel free to ask any questions when you're ready to explore further."
+
+        else:
+            # Process any additional user queries using the Assistant
             bot_reply = assistant.process_chat(user_message)
 
-            # Append the messages to chat history
-            chat_history.append(HumanMessage(content=user_message))
-            chat_history.append(AIMessage(content=bot_reply))
+        # Serialize chat history before returning
+        serialized_history = [{"type": "human", "content": msg.content} if isinstance(msg, HumanMessage)
+                              else {"type": "ai", "content": msg.content} for msg in chat_history]
 
-            # Serialize chat history before returning
-            serialized_history = [{"type": "human", "content": msg.content} if isinstance(msg, HumanMessage)
-                                  else {"type": "ai", "content": msg.content} for msg in chat_history]
+        return jsonify({"reply": bot_reply, "chat_history": serialized_history})
 
-            return jsonify({"reply": bot_reply, "chat_history": serialized_history})
-        except Exception as e:
-            # Log the full traceback for debugging
-            print("Error: ", str(e))
-            traceback.print_exc()
-            return jsonify({"reply": "Sorry, there was an error processing your request.", "error": str(e)}), 500
+    except Exception as e:
+        # Log the full traceback for debugging
+        print("Error: ", str(e))
+        traceback.print_exc()
+        return jsonify({"reply": "Sorry, there was an error processing your request.", "error": str(e)}), 500
 
     return jsonify({"reply": "No message provided."}), 400
 
