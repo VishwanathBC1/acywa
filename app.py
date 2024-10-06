@@ -146,7 +146,7 @@ class Assistant:
 # Specific assistant for map navigation
 class MapAssistant(Assistant):
     def __init__(self):
-        super().__init__('prepared_data_ver3.txt', 'map navigation')
+        super().__init__('Raw data - maps.txt', 'map navigation')
 
 # Define chat endpoint
 @app.route("/chat", methods=["POST"])
