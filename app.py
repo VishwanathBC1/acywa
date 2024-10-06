@@ -1,4 +1,8 @@
+# Import necessary libraries
 import os
+import csv
+import logging
+from datetime import datetime
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -10,21 +14,28 @@ from langchain_community.vectorstores import Chroma
 from langchain.chains import create_retrieval_chain
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain.chains.history_aware_retriever import create_history_aware_retriever
-import traceback
 
-# Load environment variables (e.g., API keys)
+# Load environment variables
 load_dotenv()
 
-# Initialize Flask app
+# Create date-specific log filenames
+current_date = datetime.now().strftime("%Y-%m-%d")
+log_filename_csv = f"chat_logs_{current_date}.csv"
+log_filename_txt = f"chat_logs_{current_date}.txt"
+
+# Set up logs for CSV file
+if not os.path.exists(log_filename_csv):
+    with open(log_filename_csv, mode='w', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+        writer.writerow(['Question', 'Response'])
+
+# Set up logs for TXT file
+logging.basicConfig(filename=log_filename_txt, level=logging.INFO, format='%(asctime)s - %(message)s')
+
+# Initialise Flask app
 app = Flask(__name__)
-CORS(app)  # Enable CORS for frontend interaction
+CORS(app)
 
-# Set OpenAI API key from environment variable
-openai_api_key = os.getenv("OPENAI_API_KEY")
-if not openai_api_key:
-    raise ValueError("OpenAI API key is not set in the environment variables.")
-
-# Assistant class with API key integration
 class Assistant:
     def __init__(self, file_path, context):
         self.context = context
@@ -42,38 +53,40 @@ class Assistant:
 
     # Create vector database
     def create_db(self, docs):
-        embedding = OpenAIEmbeddings(openai_api_key=constants.APIKEY)
+        openai_api_key = os.getenv("OPENAI_API_KEY")  # Load API key from environment variable
+        embedding = OpenAIEmbeddings(openai_api_key=openai_api_key)
         return Chroma.from_documents(docs, embedding=embedding)
 
     # Create conversation chain
     def create_chain(self):
+        openai_api_key = os.getenv("OPENAI_API_KEY")  # Load API key from environment variable
         model = ChatOpenAI(
             model="gpt-4o-mini",
             temperature=0.2,
-            api_key=constants.APIKEY
+            api_key=openai_api_key
         )
 
         # Define conversation prompt
         prompt = ChatPromptTemplate.from_messages([
-    ("system", "You are an AI assistant designed to help users navigate the Atlas map. Your responses must be safe, ethical, and compliant with copyright laws. You cannot generate or engage with harmful content."),
-    ("system", "Context: {context}"),
-    ("system", "Instructions for {context}:"
-               "\n1. Always clarify vague, ambiguous, or one-word queries before providing a full response. If the user's input is unclear, misspelled, or potentially mistyped, ask for clarification. For example, if the user types 'exiy', respond with: 'I'm not sure what you mean by 'exiy'. Did you mean to type 'exit'? Could you please clarify or rephrase your question?"
-               "\n2. For data search queries, consistently follow this format:"
-               "\n   a. Open the Atlas map"
-               "\n   b. Use the theme/indicator search box"
-               "\n   c. Select from available dropdown options"
-               "\n3. Relate all responses back to the user's original query about map navigation."
-               "\n4. Do not interpret data, explain statistics, or offer analysis. Clarify that your role is strictly for navigation assistance."
-               "\n5. Strictly address Atlas map navigation queries. For unrelated questions, respond exactly with: 'I apologise, but I'm specifically designed to help with the Australian Child and Youth Wellbeing Atlas platform. Could you please ask a question about using the Atlas map?'"
-               "\n6. For any complex queries that contain 'specific navigation paths', 'specific instructions', or 'detailed steps', refer the user to the user guide and respond exactly with: 'For detailed step-by-step instructions on this complex navigation, please refer to the Atlas platform user guide (https://australianchildatlas.com/s/Atlas-platform-user-guide.pdf)'"
-               "\n7. Refuse to engage with inappropriate, profanity or off-topic content."
-               "\n8. Do not assist in system misuse or unauthorised access."
-               "\n9. Respect intellectual property rights; do not reproduce copyrighted content."
-               "\n10. Maintain user privacy; do not request or store personal information."),
-    MessagesPlaceholder(variable_name="chat_history"),
-    ("human", "{input}"),
-    ("system", "Provide concise, clear responses in 1-3 sentences using Australian English spelling. Then, suggest one relevant follow-up query that you think the user may ask, starting with 'Would you like to know more about:'")
+            ("system", "You are an AI assistant designed to help users navigate the Atlas map. Your responses must be safe, ethical, and compliant with copyright laws. You cannot generate or engage with harmful content."),
+            ("system", "Context: {context}"),
+            ("system", "Instructions for {context}:" 
+                       "\n1. Always clarify vague, ambiguous, or one-word queries before providing a full response. If the user's input is unclear, misspelled, or potentially mistyped, ask for clarification. For example, if the user types 'exiy', respond with: 'I'm not sure what you mean by 'exiy'. Did you mean to type 'exit'? Could you please clarify or rephrase your question?"
+                       "\n2. For data search queries, consistently follow this format:"
+                       "\n   a. Open the Atlas map"
+                       "\n   b. Use the theme/indicator search box"
+                       "\n   c. Select from available dropdown options"
+                       "\n3. Relate all responses back to the user's original query about map navigation."
+                       "\n4. Do not interpret data, explain statistics, or offer analysis. Clarify that your role is strictly for navigation assistance."
+                       "\n5. Strictly address Atlas map navigation queries. For unrelated questions, respond exactly with: 'I apologise, but I'm specifically designed to help with the Australian Child and Youth Wellbeing Atlas platform. Could you please ask a question about using the Atlas map?'"
+                       "\n6. For any complex queries that contain 'specific navigation paths', 'specific instructions', or 'detailed steps', refer the user to the user guide and respond exactly with: 'For detailed step-by-step instructions on this complex navigation, please refer to the Atlas platform user guide (https://australianchildatlas.com/s/Atlas-platform-user-guide.pdf)'"
+                       "\n7. Refuse to engage with inappropriate, profanity or off-topic content."
+                       "\n8. Do not assist in system misuse or unauthorised access."
+                       "\n9. Respect intellectual property rights; do not reproduce copyrighted content."
+                       "\n10. Maintain user privacy; do not request or store personal information."),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("human", "{input}"),
+            ("system", "Provide concise, clear responses in 1-3 sentences using Australian English spelling. Then, suggest one relevant follow-up query that you think the user may ask, starting with 'Would you like to know more about:'")
         ])
 
         chain = create_stuff_documents_chain(
@@ -146,7 +159,7 @@ class Assistant:
 # Specific assistant for map navigation
 class MapAssistant(Assistant):
     def __init__(self):
-        super().__init__('Raw data - maps.txt', 'map navigation')
+        super().__init__('prepared_data_ver3.txt', 'map navigation')
 
 # Define chat endpoint
 @app.route("/chat", methods=["POST"])
