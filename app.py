@@ -169,68 +169,12 @@ def chat():
     
     assistant = MapAssistant()
     
-    # Check if this is a new user
-    if assistant.question_count == 0:
-        assistant.is_new_user = True
-        welcome_message = "Hello! Welcome to the Atlas Map Navigation Assistant! Are you new to our interactive map platform? (Yes/No)"
-        return jsonify({
-            "reply": welcome_message,
-            "follow_up": ""
-        })
+    main_response, follow_up = assistant.process_chat(user_message)
     
-    # Handle new user response
-    if assistant.is_new_user:
-        if user_message.lower() in ['yes', 'y']:
-            new_user_message = ("Great! Let's start by familiarising you with the map platform. "
-                                "You can start by reading the help screens. Please follow these steps:\n"
-                                "1. Click on the Atlas map\n"
-                                "2. Navigate to the right-hand side pane\n"
-                                "3. Click the 'i' icon in the top right-hand corner\n"
-                                "This will open the help screens. There are three screens covering different aspects of the platform: "
-                                "the National scale, Atlas menu items, and map interactions.\n\n"
-                                "Would you like to continue? (Yes/No)")
-            assistant.is_new_user = False
-            return jsonify({
-                "reply": new_user_message,
-                "follow_up": ""
-            })
-        elif user_message.lower() in ['no', 'n']:
-            assistant.is_new_user = False
-            return jsonify({
-                "reply": "Welcome back! What can I help you with today? You can type 'exit' at any time to end the conversation.",
-                "follow_up": ""
-            })
-        else:
-            return jsonify({
-                "reply": "Please answer with 'Yes' or 'No'.",
-                "follow_up": ""
-            })
-    
-    # Handle exit command
-    if user_message.lower() == 'exit':
-        return jsonify({
-            "reply": "Thank you for using the Atlas Map Navigation Assistant. Goodbye!",
-            "follow_up": ""
-        })
-    
-    try:
-        # Process regular chat
-        main_response, follow_up = assistant.process_chat(user_message)
-        
-        # Check if it's time to ask if user needs more assistance
-        if assistant.question_count % 5 == 0:
-            main_response += "\n\nDo you still need any more assistance or have any other questions? (Yes/No)"
-        
-        return jsonify({
-            "reply": main_response,
-            "follow_up": follow_up
-        })
-    except Exception as e:
-        error_message = f"An error occurred: {str(e)}\nLet's try that again. Could you rephrase your question?"
-        return jsonify({
-            "reply": error_message,
-            "follow_up": ""
-        })
+    return jsonify({
+        "reply": main_response,
+        "follow_up": follow_up
+    })
 
 # Main execution
 if __name__ == '__main__':
